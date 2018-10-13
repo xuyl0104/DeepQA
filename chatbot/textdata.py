@@ -32,6 +32,7 @@ from chatbot.corpus.opensubsdata import OpensubsData
 from chatbot.corpus.scotusdata import ScotusData
 from chatbot.corpus.ubuntudata import UbuntuData
 from chatbot.corpus.lightweightdata import LightweightData
+from chatbot.corpus.msparaphrase import MSParaphraseData
 
 
 class Batch:
@@ -55,6 +56,7 @@ class TextData:
         ('scotus', ScotusData),
         ('ubuntu', UbuntuData),
         ('lightweight', LightweightData),
+        ('msparaphrase', MSParaphraseData),
     ])
 
     @staticmethod
@@ -63,6 +65,7 @@ class TextData:
         Return:
             list<string>: the supported corpus
         """
+
         return list(TextData.availableCorpus.keys())
 
     def __init__(self, args):
@@ -264,11 +267,15 @@ class TextData:
                 self.loadDataset(self.fullSamplesPath)
             self._printStats()
 
+            print('Before filtering, we have {} instances (sentence pairs)'.format(len(self.trainingSamples)))
+
             print('Filtering words (vocabSize = {} and wordCount > {})...'.format(
                 self.args.vocabularySize,
                 self.args.filterVocab
             ))
             self.filterFromFull()  # Extract the sub vocabulary for the given maxLength and filterVocab
+
+            print('After filtering, we have {} instances (sentence pairs)'.format(len(self.trainingSamples)))
 
             # Saving
             print('Saving dataset...')
