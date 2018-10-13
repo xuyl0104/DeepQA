@@ -23,3 +23,5 @@
 
 - [ ] play with batch_size, epochs, learning rate...
 - [ ] study the performance curves of these parameters
+
+- [x] The current batch_size is 100, epoch is 30, maxLength of sentence is 40
