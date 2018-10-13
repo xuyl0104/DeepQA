@@ -1,9 +1,9 @@
 #### 1. Dataset overview:
-Total number of sentence pairs: 5801 (3900 valid paraphrase and 1901 not equivalent)
-Ratio between training and testing: 7:3 (70.3:29.7)
-Number of sentence pairs of of training and testing: 4076 and 1725
+- Total number of sentence pairs: 5801 (3900 valid paraphrase and 1901 not equivalent)
+- Ratio between training and testing: 7:3 (70.3:29.7)
+- Number of sentence pairs of of training and testing: 4076 and 1725
 
-We only need the sentence pairs which consists two 'equivalent' sentences. The sentence pairs has a mark 'quality = 1'.
+- We only need the sentence pairs which consists two 'equivalent' sentences. The sentence pairs has a mark 'quality = 1'.
 
 
 
