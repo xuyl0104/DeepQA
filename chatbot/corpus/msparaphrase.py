@@ -34,19 +34,20 @@ class MSParaphraseData:
         with open(fileName, 'r', encoding='utf-8-sig') as f:  # TODO: Solve Iso encoding pb !
             for line in f:
                 values = line.split("\t")
+                print (values[0] == '1')
+                if values[0] == '1':
+                    # Extract fields
+                    convObj = {}
+                    for i, field in enumerate(fields):
+                        convObj[field] = values[i]
 
-                # Extract fields
-                convObj = {}
-                for i, field in enumerate(fields):
-                    convObj[field] = values[i]
+                    lineIds = [convObj["string1ID"], convObj["string2ID"]]
+                    # Reassemble lines
+                    convObj["lines"] = []
+                    for lineId in lineIds:
+                        convObj["lines"].append(self.lines[lineId])
 
-                lineIds = [convObj["string1ID"], convObj["string2ID"]]
-                # Reassemble lines
-                convObj["lines"] = []
-                for lineId in lineIds:
-                    convObj["lines"].append(self.lines[lineId])
-
-                conversations.append(convObj)
+                    conversations.append(convObj)
 
         return conversations
 
