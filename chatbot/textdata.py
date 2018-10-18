@@ -33,7 +33,7 @@ from chatbot.corpus.scotusdata import ScotusData
 from chatbot.corpus.ubuntudata import UbuntuData
 from chatbot.corpus.lightweightdata import LightweightData
 from chatbot.corpus.msparaphrase import MSParaphraseData
-
+from chatbot.corpus.gyafcdata import GYAFCData
 
 class Batch:
     """Struct containing batches info
@@ -57,6 +57,7 @@ class TextData:
         ('ubuntu', UbuntuData),
         ('lightweight', LightweightData),
         ('msparaphrase', MSParaphraseData),
+        ('gyafc', GYAFCData)
     ])
 
     @staticmethod

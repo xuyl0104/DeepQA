@@ -1,0 +1,5 @@
+# Ignore everything in this directory
+# Don't upload this dataset folder to your github or other open source version control websites
+*
+# Except this file
+!.gitignore
