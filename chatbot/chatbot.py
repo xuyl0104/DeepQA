@@ -66,6 +66,9 @@ class Chatbot:
         self.sess = None
 
         # Filename and directories constants
+        self.PLOT_DATA_BASE = 'save' + os.sep + 'plot_data'
+        self.plot_loss = []
+        self.plot_perplexity = []
         self.MODEL_DIR_BASE = 'save' + os.sep + 'model'
         self.MODEL_NAME_BASE = 'model'
         self.MODEL_EXT = '.ckpt'
@@ -74,6 +77,14 @@ class Chatbot:
         self.TEST_IN_NAME = 'data' + os.sep + 'test' + os.sep + 'samples.txt'
         self.TEST_OUT_SUFFIX = '_predictions.txt'
         self.SENTENCES_PREFIX = ['Q: ', 'A: ']
+
+    def save_plot_data_to_files(self):
+        lr = (str)(self.args.learningRate).split('.')[1]
+        lossfilename = "loss" + "_" + "bs" + "_" + (str)(self.args.batchSize) + "_" + "lr" + "_" + lr + "_" + "ep" + "_" + (str)(self.args.numEpochs)
+        perplexityfilename = "perplexity" + "_" + "bs" + "_" + (str)(self.args.batchSize) + "_" + "lr" + "_" + lr + "_" + "ep" + "_" + (str)(self.args.numEpochs)
+
+        np.save(self.PLOT_DATA_BASE + os.sep + lossfilename, self.plot_loss)
+        np.save(self.PLOT_DATA_BASE + os.sep + perplexityfilename, self.plot_perplexity)
 
     @staticmethod
     def parseArgs(args):
@@ -254,6 +265,9 @@ class Chatbot:
                     self.writer.add_summary(summary, self.globStep)
                     self.globStep += 1
 
+                    self.plot_loss.append(math.exp(float(loss)) if loss < 300 else float("inf"))
+                    self.plot_perplexity.append(loss)
+
                     # Output training status
                     if self.globStep % 100 == 0:
                         perplexity = math.exp(float(loss)) if loss < 300 else float("inf")
@@ -269,6 +283,9 @@ class Chatbot:
         except (KeyboardInterrupt, SystemExit):  # If the user press Ctrl+C while testing progress
             print('Interruption detected, exiting the program...')
 
+        print(self.plot_perplexity)
+        print(self.plot_loss)
+        self.save_plot_data_to_files()
         self._saveSession(sess)  # Ultimate saving before complete exit
 
     def predictTestset(self, sess):
@@ -560,6 +577,7 @@ class Chatbot:
             # Show the restored params
             print()
             print('Warning: Restoring parameters:')
+            print('batchSize {}'.format(self.args.batchSize))
             print('globStep: {}'.format(self.globStep))
             print('watsonMode: {}'.format(self.args.watsonMode))
             print('autoEncode: {}'.format(self.args.autoEncode))
