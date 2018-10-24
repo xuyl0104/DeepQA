@@ -256,7 +256,7 @@ class Chatbot:
                 # update decay_factor
                 # in the first 20 epochs, the decay factor will bot decay
                 # after the first 20 epochs, the decay_factor is original_decay** max(epoch + 1 - 20, 0.0)
-                new_decay_factor = original_decay ** max(e + 1 - 2, 0)
+                new_decay_factor = original_decay ** max(e + 1 - 20, 0)
                 self.args.learningRate = self.args.learningRate * new_decay_factor
 
                 print()
