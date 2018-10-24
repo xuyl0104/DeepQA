@@ -80,8 +80,8 @@ class Chatbot:
 
     def save_plot_data_to_files(self):
         lr = (str)(self.args.learningRate).split('.')[1]
-        lossfilename = "loss" + "_" + "bs" + "_" + (str)(self.args.batchSize) + "_" + "lr" + "_" + lr + "_" + "ep" + "_" + (str)(self.args.numEpochs)
-        perplexityfilename = "perplexity" + "_" + "bs" + "_" + (str)(self.args.batchSize) + "_" + "lr" + "_" + lr + "_" + "ep" + "_" + (str)(self.args.numEpochs)
+        lossfilename = (str)(self.args.corpus) + "_" + "loss" + "_" + "bs" + "_" + (str)(self.args.batchSize) + "_" + "lr" + "_" + lr + "_" + "ep" + "_" + (str)(self.args.numEpochs)
+        perplexityfilename = (str)(self.args.corpus) + "_" + "perplexity" + "_" + "bs" + "_" + (str)(self.args.batchSize) + "_" + "lr" + "_" + lr + "_" + "ep" + "_" + (str)(self.args.numEpochs)
 
         np.save(self.PLOT_DATA_BASE + os.sep + lossfilename, self.plot_loss)
         np.save(self.PLOT_DATA_BASE + os.sep + perplexityfilename, self.plot_perplexity)
@@ -236,6 +236,8 @@ class Chatbot:
 
         # Specific training dependent loading
 
+        original_decay = 0.96
+
         self.textData.makeLighter(self.args.ratioDataset)  # Limit the number of training samples
 
         mergedSummaries = tf.summary.merge_all()  # Define the summary operator (Warning: Won't appear on the tensorboard graph)
@@ -248,6 +250,14 @@ class Chatbot:
 
         try:  # If the user exit while training, we still try to save the model
             for e in range(self.args.numEpochs):
+
+                # use decay_factor to change learning_rate according to epoch number
+
+                # update decay_factor
+                # in the first 20 epochs, the decay factor will bot decay
+                # after the first 20 epochs, the decay_factor is original_decay** max(epoch + 1 - 20, 0.0)
+                new_decay_factor = original_decay ** max(e + 1 - 2, 0)
+                self.args.learningRate = self.args.learningRate * new_decay_factor
 
                 print()
                 print("----- Epoch {}/{} ; (lr={}) -----".format(e+1, self.args.numEpochs, self.args.learningRate))
@@ -322,6 +332,7 @@ class Chatbot:
                         continue  # Back to the beginning, try again
 
                     predString = '{x[0]}{0}\n{x[1]}{1}\n\n'.format(question, self.textData.sequence2str(answer, clean=True), x=self.SENTENCES_PREFIX)
+                    print (predString)
                     if self.args.verbose:
                         tqdm.write(predString)
                     f.write(predString)
