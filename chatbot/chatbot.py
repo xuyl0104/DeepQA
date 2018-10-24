@@ -78,11 +78,10 @@ class Chatbot:
         self.TEST_OUT_SUFFIX = '_predictions.txt'
         self.SENTENCES_PREFIX = ['Q: ', 'A: ']
 
-    def save_plot_data_to_files(self):
-        lr = (str)(self.args.learningRate).split('.')[1]
+    def save_plot_data_to_files(self, original_lr):
+        lr = (str)(original_lr).split('.')[1]
         lossfilename = (str)(self.args.corpus) + "_" + "loss" + "_" + "bs" + "_" + (str)(self.args.batchSize) + "_" + "lr" + "_" + lr + "_" + "ep" + "_" + (str)(self.args.numEpochs)
         perplexityfilename = (str)(self.args.corpus) + "_" + "perplexity" + "_" + "bs" + "_" + (str)(self.args.batchSize) + "_" + "lr" + "_" + lr + "_" + "ep" + "_" + (str)(self.args.numEpochs)
-
         np.save(self.PLOT_DATA_BASE + os.sep + lossfilename, self.plot_loss)
         np.save(self.PLOT_DATA_BASE + os.sep + perplexityfilename, self.plot_perplexity)
 
@@ -237,6 +236,7 @@ class Chatbot:
         # Specific training dependent loading
 
         original_decay = 0.96
+        original_lr = self.args.learningRate
 
         self.textData.makeLighter(self.args.ratioDataset)  # Limit the number of training samples
 
@@ -293,9 +293,9 @@ class Chatbot:
         except (KeyboardInterrupt, SystemExit):  # If the user press Ctrl+C while testing progress
             print('Interruption detected, exiting the program...')
 
-        print(self.plot_perplexity)
-        print(self.plot_loss)
-        self.save_plot_data_to_files()
+        # print(self.plot_perplexity)
+        # print(self.plot_loss)
+        self.save_plot_data_to_files(original_lr)
         self._saveSession(sess)  # Ultimate saving before complete exit
 
     def predictTestset(self, sess):
