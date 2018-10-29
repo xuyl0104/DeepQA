@@ -243,3 +243,6 @@ class Model:
 
         # Return one pass operator
         return ops, feedDict
+
+
+    # def stepValidation(self):

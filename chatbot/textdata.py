@@ -45,6 +45,7 @@ class Batch:
         self.weights = []
 
 
+
 class TextData:
     """Dataset class
     Warning: No vocabulary limit
@@ -66,7 +67,6 @@ class TextData:
         Return:
             list<string>: the supported corpus
         """
-
         return list(TextData.availableCorpus.keys())
 
     def __init__(self, args):
@@ -93,6 +93,7 @@ class TextData:
         self.unknownToken = -1  # Word dropped from vocabulary
 
         self.trainingSamples = []  # 2d array containing each question and his answer [[input,target]]
+        self.validationSamples = [] # 2d array containing each question and his answer [[input,target]]
 
         self.word2id = {}
         self.id2word = {}  # For a rapid conversion (Warning: If replace dict by list, modify the filtering to avoid linear complexity with del)
@@ -132,6 +133,11 @@ class TextData:
         print('Shuffling the dataset...')
         random.shuffle(self.trainingSamples)
 
+
+    def shuffleValidation(self):
+        print('Shuffling the validation set...')
+        random.shuffle(self.validationSamples)
+
     def _createBatch(self, samples):
         """Create a single batch from the list of sample. The batch size is automatically defined by the number of
         samples given.
@@ -158,6 +164,7 @@ class TextData:
             # TODO: Why re-processed that at each epoch ? Could precompute that
             # once and reuse those every time. Is not the bottleneck so won't change
             # much ? and if preprocessing, should be compatible with autoEncode & cie.
+            #batch.encoderSeqs.append(list(reversed(sample[0])))  # Reverse inputs (and not outputs), little trick as defined on the original seq2seq paper
             batch.encoderSeqs.append(list(reversed(sample[0])))  # Reverse inputs (and not outputs), little trick as defined on the original seq2seq paper
             batch.decoderSeqs.append([self.goToken] + sample[1] + [self.eosToken])  # Add the <go> and <eos> tokens
             batch.targetSeqs.append(batch.decoderSeqs[-1][1:])  # Same as decoder, but shifted to the left (ignore the <go>)
@@ -165,6 +172,8 @@ class TextData:
             # Long sentences should have been filtered during the dataset creation
             assert len(batch.encoderSeqs[i]) <= self.args.maxLengthEnco
             assert len(batch.decoderSeqs[i]) <= self.args.maxLengthDeco
+
+
 
             # TODO: Should use tf batch function to automatically add padding and batch samples
             # Add padding & define weight
@@ -174,6 +183,8 @@ class TextData:
             batch.targetSeqs[i]  = batch.targetSeqs[i]  + [self.padToken] * (self.args.maxLengthDeco - len(batch.targetSeqs[i]))
 
         # Simple hack to reshape the batch
+
+
         encoderSeqsT = []  # Corrected orientation
         for i in range(self.args.maxLengthEnco):
             encoderSeqT = []
@@ -200,12 +211,15 @@ class TextData:
         batch.targetSeqs = targetSeqsT
         batch.weights = weightsT
 
+
         # # Debug
         # self.printBatch(batch)  # Input inverted, padding should be correct
         # print(self.sequence2str(samples[0][0]))
         # print(self.sequence2str(samples[0][1]))  # Check we did not modified the original sample
 
         return batch
+
+
 
     def getBatches(self):
         """Prepare the batches for the current epoch
@@ -228,6 +242,19 @@ class TextData:
             batch = self._createBatch(samples)
             batches.append(batch)
         return batches
+
+
+    def getValidationBatches(self):
+        self.shuffleValidation()
+        batches = []
+        def genNextSamples():
+            for i in range(0, self.getSampleSize(), self.args.batchSize):
+                yield self.trainingSamples[i:min(i + self.args.batchSize, self.getSampleSize())]
+        for samples in self.validationSamples:
+            batch = self._createBatch(samples)
+            batches.append(batch)
+        return batches
+
 
     def getSampleSize(self):
         """Return the size of the dataset
@@ -263,7 +290,12 @@ class TextData:
                 # Corpus creation
                 corpusData = TextData.availableCorpus[self.args.corpus](self.corpusDir + optional)
                 self.createFullCorpus(corpusData.getConversations())
+
+                self.createFullValidationCorpus(corpusData.getValidationConversations())
+
                 self.saveDataset(self.fullSamplesPath)
+
+
             else:
                 self.loadDataset(self.fullSamplesPath)
             self._printStats()
@@ -420,6 +452,18 @@ class TextData:
 
         self.idCount.clear()  # Not usefull anymore. Free data
 
+    # validation
+    def createFullValidationCorpus(self, conversations):
+        self.padToken = self.getWordId('<pad>')  # Padding (Warning: first things to add > id=0 !!)
+        self.goToken = self.getWordId('<go>')  # Start of sequence
+        self.eosToken = self.getWordId('<eos>')  # End of sequence
+        self.unknownToken = self.getWordId('<unknown>')  # Word dropped from vocabulary
+
+        # Preprocessing data
+        for conversation in tqdm(conversations, desc='Extract conversations'):
+            self.extractValidationConversation(conversation)
+
+    # training
     def createFullCorpus(self, conversations):
         """Extract all data from the given vocabulary.
         Save the data on disk. Note that the entire corpus is pre-processed
@@ -437,6 +481,28 @@ class TextData:
             self.extractConversation(conversation)
 
         # The dataset will be saved in the same order it has been extracted
+
+
+    def extractValidationConversation(self, conversation):
+        """Extract the sample lines from the conversations
+                Args:
+                    conversation (Obj): a conversation object containing the lines to extract
+                """
+        if self.args.skipLines:  # WARNING: The dataset won't be regenerated if the choice evolve (have to use the datasetTag)
+            step = 2
+        else:
+            step = 1
+        # Iterate over all the lines of the conversation
+        for i in tqdm_wrap(range(0, len(conversation['lines']) - 1, step),  # We ignore the last line (no answer for it)
+                desc='Conversation', leave=False):
+            inputLine = conversation['lines'][i]
+            targetLine = conversation['lines'][i + 1]
+
+            inputWords = self.extractText(inputLine['text'])
+            targetWords = self.extractText(targetLine['text'])
+
+            if inputWords and targetWords:  # Filter wrong samples (if one of the list is empty)
+                self.validationSamples.append([inputWords, targetWords])
 
     def extractConversation(self, conversation):
         """Extract the sample lines from the conversations

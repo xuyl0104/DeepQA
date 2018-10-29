@@ -136,11 +136,24 @@ class Chatbot:
         nnArgs.add_argument('--embeddingSize', type=int, default=64, help='embedding size of the word representation')
         nnArgs.add_argument('--embeddingSource', type=str, default="GoogleNews-vectors-negative300.bin", help='embedding file to use for the word representation')
 
+        # # VRNN
+        # nnArgs.add_argument('--latentSize', type=int, default=512, help='number of units in latent variable') #z_1
+        # nnArgs.add_argument('--encoded_data_size', type=int, default=None, help='number of output units for x extractor') #x_1
+        # nnArgs.add_argument('--encoded_latent_size', type=int, default=None, help='number of output units for z extractor') #z_1
+        # nnArgs.add_argument('--sigma_min', type=float, default=0.0, help='The minimum value that the standard deviation of the distribution over the latent state can take')
+        # nnArgs.add_argument('--raw_sigma_bias', type=float, default=0.25, help='The minimum value that the standard deviation of the distribution over the latent state can take')
+        # nnArgs.add_argument('--fcnet_hidden_sizes', type=int, default=1, help='A list of python integers, the size of the hidden layers of the fully connected networks')
+        # nnArgs.add_argument('--proposal_type', type=str, default="prior", help='The type of proposal to use. true-filtering and true-smoothing are only available for the GHMM. The specific implementation of each proposal type is left to model-writers.')
+        # nnArgs.add_argument('--use_tilt', type=int, default=0, help='If true, create a VRNN with a tilting function')
+        # nnArgs.add_argument('--ps_tasks', type=int, default=0, help='Number of tasks in the ps job. If 0 no ps job is used.')
+        # nnArgs.add_argument('--bound', type=str, default="elbo", help='The bound to optimize.')
+        # nnArgs.add_argument('--parallel_iterations', type=int, default=30, help='The number of parallel iterations to use for the while loop that computes the bounds.')
+
         # Training options
         trainingArgs = parser.add_argument_group('Training options')
         trainingArgs.add_argument('--numEpochs', type=int, default=30, help='maximum number of epochs to run')
         trainingArgs.add_argument('--saveEvery', type=int, default=2000, help='nb of mini-batch step before creating a model checkpoint')
-        trainingArgs.add_argument('--batchSize', type=int, default=256, help='mini-batch size')
+        trainingArgs.add_argument('--batchSize', type=int, default=50, help='mini-batch size')
         trainingArgs.add_argument('--learningRate', type=float, default=0.002, help='Learning rate')
         trainingArgs.add_argument('--dropout', type=float, default=0.9, help='Dropout rate (keep probabilities)')
 
@@ -254,7 +267,7 @@ class Chatbot:
                 # use decay_factor to change learning_rate according to epoch number
 
                 # update decay_factor
-                # in the first 20 epochs, the decay factor will bot decay
+                # in the first 20 epochs, the decay factor will not decay
                 # after the first 20 epochs, the decay_factor is original_decay** max(epoch + 1 - 20, 0.0)
                 new_decay_factor = original_decay ** max(e + 1 - 20, 0)
                 self.args.learningRate = self.args.learningRate * new_decay_factor
@@ -263,6 +276,8 @@ class Chatbot:
                 print("----- Epoch {}/{} ; (lr={}) -----".format(e+1, self.args.numEpochs, self.args.learningRate))
 
                 batches = self.textData.getBatches()
+
+                validationBatches = self.textData.getValidationBatches()
 
                 # TODO: Also update learning parameters eventually
 
@@ -277,6 +292,16 @@ class Chatbot:
 
                     self.plot_loss.append(math.exp(float(loss)) if loss < 300 else float("inf"))
                     self.plot_perplexity.append(loss)
+
+                    # Do validation every 100 steps
+                    # if self.globStep % 5 == 0:
+                    #     # self.mainValidation()
+                    #     ops_valadition, validation_feedDict = self.model.step(validationBatches)
+                    #     assert len(ops_valadition) == 2  # validation, loss
+                    #     _, validation_loss, validation_summary = sess.run(ops_valadition + (mergedSummaries,), validation_feedDict)
+                    #     validation_perplexity = math.exp(float(validation_loss)) if validation_loss < 300 else float("inf")
+                    #     tqdm.write("VALIDATION----- Step %d -- Loss %.2f -- Perplexity %.2f" % (self.globStep, validation_loss, validation_perplexity))
+
 
                     # Output training status
                     if self.globStep % 100 == 0:
@@ -297,6 +322,11 @@ class Chatbot:
         # print(self.plot_loss)
         self.save_plot_data_to_files(original_lr)
         self._saveSession(sess)  # Ultimate saving before complete exit
+
+
+    def mainValidation(self):
+        pass
+
 
     def predictTestset(self, sess):
         """ Try predicting the sentences from the samples.txt file.
