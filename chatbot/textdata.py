@@ -247,12 +247,12 @@ class TextData:
     def getValidationBatches(self):
         self.shuffleValidation()
         batches = []
-        def genNextSamples():
-            for i in range(0, self.getSampleSize(), self.args.batchSize):
-                yield self.trainingSamples[i:min(i + self.args.batchSize, self.getSampleSize())]
-        for samples in self.validationSamples:
-            batch = self._createBatch(samples)
-            batches.append(batch)
+        # def genNextSamples():
+        #     for i in range(0, self.getSampleSize(), self.args.batchSize):
+        #         yield self.trainingSamples[i:min(i + self.args.batchSize, self.getSampleSize())]
+        # for samples in self.validationSamples:
+        batch = self._createBatch(self.validationSamples)
+        batches.append(batch)
         return batches
 
 

@@ -294,14 +294,14 @@ class Chatbot:
                     self.plot_perplexity.append(loss)
 
                     # Do validation every 100 steps
-                    # if self.globStep % 5 == 0:
-                    #     # self.mainValidation()
-                    #     ops_valadition, validation_feedDict = self.model.step(validationBatches)
-                    #     assert len(ops_valadition) == 2  # validation, loss
-                    #     _, validation_loss, validation_summary = sess.run(ops_valadition + (mergedSummaries,), validation_feedDict)
-                    #     validation_perplexity = math.exp(float(validation_loss)) if validation_loss < 300 else float("inf")
-                    #     tqdm.write("VALIDATION----- Step %d -- Loss %.2f -- Perplexity %.2f" % (self.globStep, validation_loss, validation_perplexity))
-
+                    if self.globStep % 5 == 0:
+                        # self.mainValidation()
+                        ops_valadition, validation_feedDict = self.model.step(validationBatches)
+                        assert len(ops_valadition) == 2  # validation, loss
+                        _, validation_loss, validation_summary = sess.run(ops_valadition + (mergedSummaries,), validation_feedDict)
+                        validation_perplexity = math.exp(float(validation_loss)) if validation_loss < 300 else float("inf")
+                        # tqdm.write("VALIDATION----- Step %d -- Loss %.2f -- Perplexity %.2f" % (self.globStep, validation_loss, validation_perplexity))
+                        print("VALIDATION____Step: " + (str)(self.globStep) + "____ Loss: " + (str)(validation_loss) + "____ PP: " + (str)(validation_perplexity))
 
                     # Output training status
                     if self.globStep % 100 == 0:
