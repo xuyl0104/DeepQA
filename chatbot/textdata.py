@@ -247,12 +247,12 @@ class TextData:
     def getValidationBatches(self):
         self.shuffleValidation()
         batches = []
-        # def genNextSamples():
-        #     for i in range(0, self.getSampleSize(), self.args.batchSize):
-        #         yield self.trainingSamples[i:min(i + self.args.batchSize, self.getSampleSize())]
-        # for samples in self.validationSamples:
-        batch = self._createBatch(self.validationSamples)
-        batches.append(batch)
+        def genNextSamples():
+            for i in range(0, self.getValidationSampleSize(), self.args.batchSize):
+                yield self.validationSamples[i:min(i + self.args.batchSize, self.getValidationSampleSize())]
+        for samples in self.validationSamples:
+            batch = self._createBatch(samples)
+            batches.append(batch)
         return batches
 
 
@@ -262,6 +262,13 @@ class TextData:
             int: Number of training samples
         """
         return len(self.trainingSamples)
+
+    def getValidationSampleSize(self):
+        """Return the size of the dataset
+        Return:
+            int: Number of training samples
+        """
+        return len(self.validationSamples)
 
     def getVocabularySize(self):
         """Return the number of words present in the dataset
@@ -516,11 +523,8 @@ class TextData:
             step = 1
 
         # Iterate over all the lines of the conversation
-        for i in tqdm_wrap(
-            range(0, len(conversation['lines']) - 1, step),  # We ignore the last line (no answer for it)
-            desc='Conversation',
-            leave=False
-        ):
+        for i in tqdm_wrap(range(0, len(conversation['lines']) - 1, step),  # We ignore the last line (no answer for it)
+                desc='Conversation', leave=False):
             inputLine  = conversation['lines'][i]
             targetLine = conversation['lines'][i+1]
 
