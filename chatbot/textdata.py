@@ -314,8 +314,14 @@ class TextData:
                 self.args.vocabularySize,
                 self.args.filterVocab
             ))
+
+            tempword2id = self.word2id
+            tempid2word = self.id2word  # For a rapid conversion (Warning: If replace dict by list, modify the filtering to avoid linear complexity with del)
+            tempidCount = self.idCount  # Useful to filters the words (TODO: Could replace dict by list or use collections.Counter)
+
             self.filterFromFull()  # Extract the sub vocabulary for the given maxLength and filterVocab
-            self.filterFromFullValidation()
+            self.filterFromFullValidation(tempword2id, tempid2word, tempidCount)
+
             print('After filtering, we have {} instances (sentence pairs)'.format(len(self.trainingSamples)))
 
             # Saving
@@ -461,10 +467,13 @@ class TextData:
         # self.idCount.clear()  # Not usefull anymore. Free data
 
 
-    def filterFromFullValidation(self):
+    def filterFromFullValidation(self, tempword2id, tempid2word, tempidCount):
         """ Load the pre-processed full corpus and filter the vocabulary / sentences
         to match the given model options
         """
+        self.word2id = tempword2id
+        self.id2word = tempid2word  # For a rapid conversion (Warning: If replace dict by list, modify the filtering to avoid linear complexity with del)
+        self.idCount = tempidCount  # Useful to filters the words (TODO: Could replace dict by list or use collections.Counter)
 
         def mergeSentences(sentences, fromEnd=False):
             """Merge the sentences until the max sentence length is reached
@@ -493,6 +502,8 @@ class TextData:
                         merged = merged + sentence
                 else:  # If the sentence is not used, neither are the words
                     for w in sentence:
+                        print (w)
+                        print (w in self.idCount.keys())
                         self.idCount[w] -= 1
             return merged
 
@@ -503,6 +514,9 @@ class TextData:
         for inputWords, targetWords in tqdm(self.validationSamples, desc='Filter sentences:', leave=False):
             inputWords = mergeSentences(inputWords, fromEnd=True)
             targetWords = mergeSentences(targetWords, fromEnd=False)
+
+            print(inputWords)
+            print(targetWords)
 
             newSamples.append([inputWords, targetWords])
         words = []
