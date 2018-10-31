@@ -305,6 +305,7 @@ class TextData:
 
             else:
                 self.loadDataset(self.fullSamplesPath)
+
             self._printStats()
 
             print('Before filtering, we have {} instances (sentence pairs)'.format(len(self.trainingSamples)))
@@ -314,7 +315,7 @@ class TextData:
                 self.args.filterVocab
             ))
             self.filterFromFull()  # Extract the sub vocabulary for the given maxLength and filterVocab
-
+            self.filterFromFullValidation()
             print('After filtering, we have {} instances (sentence pairs)'.format(len(self.trainingSamples)))
 
             # Saving
@@ -457,7 +458,110 @@ class TextData:
             if valid:
                 self.trainingSamples.append([inputWords, targetWords])  # TODO: Could replace list by tuple
 
+        # self.idCount.clear()  # Not usefull anymore. Free data
+
+
+    def filterFromFullValidation(self):
+        """ Load the pre-processed full corpus and filter the vocabulary / sentences
+        to match the given model options
+        """
+
+        def mergeSentences(sentences, fromEnd=False):
+            """Merge the sentences until the max sentence length is reached
+            Also decrement id count for unused sentences.
+            Args:
+                sentences (list<list<int>>): the list of sentences for the current line
+                fromEnd (bool): Define the question on the answer
+            Return:
+                list<int>: the list of the word ids of the sentence
+            """
+            # We add sentence by sentence until we reach the maximum length
+            merged = []
+
+            # If question: we only keep the last sentences
+            # If answer: we only keep the first sentences
+            if fromEnd:
+                sentences = reversed(sentences)
+
+            for sentence in sentences:
+
+                # If the total length is not too big, we still can add one more sentence
+                if len(merged) + len(sentence) <= self.args.maxLength:
+                    if fromEnd:  # Append the sentence
+                        merged = sentence + merged
+                    else:
+                        merged = merged + sentence
+                else:  # If the sentence is not used, neither are the words
+                    for w in sentence:
+                        self.idCount[w] -= 1
+            return merged
+
+        newSamples = []
+
+        # 1st step: Iterate over all words and add filters the sentences
+        # according to the sentence lengths
+        for inputWords, targetWords in tqdm(self.validationSamples, desc='Filter sentences:', leave=False):
+            inputWords = mergeSentences(inputWords, fromEnd=True)
+            targetWords = mergeSentences(targetWords, fromEnd=False)
+
+            newSamples.append([inputWords, targetWords])
+        words = []
+
+        # WARNING: DO NOT FILTER THE UNKNOWN TOKEN !!! Only word which has count==0 ?
+
+        # 2nd step: filter the unused words and replace them by the unknown token
+        # This is also where we update the correnspondance dictionaries
+        specialTokens = {  # TODO: bad HACK to filter the special tokens. Error prone if one day add new special tokens
+            self.padToken,
+            self.goToken,
+            self.eosToken,
+            self.unknownToken
+        }
+        newMapping = {}  # Map the full words ids to the new one (TODO: Should be a list)
+        newId = 0
+
+        selectedWordIds = collections \
+            .Counter(self.idCount) \
+            .most_common(self.args.vocabularySize or None)  # Keep all if vocabularySize == 0
+        selectedWordIds = {k for k, v in selectedWordIds if v > self.args.filterVocab}
+        selectedWordIds |= specialTokens
+
+        for wordId, count in [(i, self.idCount[i]) for i in range(len(self.idCount))]:  # Iterate in order
+            if wordId in selectedWordIds:  # Update the word id
+                newMapping[wordId] = newId
+                word = self.id2word[wordId]  # The new id has changed, update the dictionaries
+                del self.id2word[wordId]  # Will be recreated if newId == wordId
+                self.word2id[word] = newId
+                self.id2word[newId] = word
+                newId += 1
+            else:  # Cadidate to filtering, map it to unknownToken (Warning: don't filter special token)
+                newMapping[wordId] = self.unknownToken
+                del self.word2id[self.id2word[wordId]]  # The word isn't used anymore
+                del self.id2word[wordId]
+
+        # Last step: replace old ids by new ones and filters empty sentences
+        def replace_words(words):
+            valid = False  # Filter empty sequences
+            for i, w in enumerate(words):
+                words[i] = newMapping[w]
+                if words[i] != self.unknownToken:  # Also filter if only contains unknown tokens
+                    valid = True
+            return valid
+
+        self.validationSamples.clear()
+
+        for inputWords, targetWords in tqdm(newSamples, desc='Replace ids:', leave=False):
+            valid = True
+            valid &= replace_words(inputWords)
+            valid &= replace_words(targetWords)
+            valid &= targetWords.count(self.unknownToken) == 0  # Filter target with out-of-vocabulary target words ?
+
+            if valid:
+                self.validationSamples.append([inputWords, targetWords])  # TODO: Could replace list by tuple
+
         self.idCount.clear()  # Not usefull anymore. Free data
+
+
 
     # validation
     def createFullValidationCorpus(self, conversations):
