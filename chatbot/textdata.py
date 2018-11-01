@@ -99,6 +99,10 @@ class TextData:
         self.id2word = {}  # For a rapid conversion (Warning: If replace dict by list, modify the filtering to avoid linear complexity with del)
         self.idCount = {}  # Useful to filters the words (TODO: Could replace dict by list or use collections.Counter)
 
+        self.word2id_validation = {}
+        self.id2word_validation = {}  # For a rapid conversion (Warning: If replace dict by list, modify the filtering to avoid linear complexity with del)
+        self.idCount_validation = {}  # Useful to filters the words (TODO: Could replace dict by list or use collections.Counter)
+
         self.loadCorpus()
 
         # Plot some stats:
@@ -315,12 +319,13 @@ class TextData:
                 self.args.filterVocab
             ))
 
-            tempword2id = self.word2id
-            tempid2word = self.id2word  # For a rapid conversion (Warning: If replace dict by list, modify the filtering to avoid linear complexity with del)
-            tempidCount = self.idCount  # Useful to filters the words (TODO: Could replace dict by list or use collections.Counter)
+            # tempword2id = self.word2id
+            # tempid2word = self.id2word  # For a rapid conversion (Warning: If replace dict by list, modify the filtering to avoid linear complexity with del)
+            # tempidCount = self.idCount  # Useful to filters the words (TODO: Could replace dict by list or use collections.Counter)
 
             self.filterFromFull()  # Extract the sub vocabulary for the given maxLength and filterVocab
-            self.filterFromFullValidation(tempword2id, tempid2word, tempidCount)
+            # self.filterFromFullValidation(tempword2id, tempid2word, tempidCount)
+            self.filterFromFullValidation()
 
             print('After filtering, we have {} instances (sentence pairs)'.format(len(self.trainingSamples)))
 
@@ -464,16 +469,16 @@ class TextData:
             if valid:
                 self.trainingSamples.append([inputWords, targetWords])  # TODO: Could replace list by tuple
 
-        # self.idCount.clear()  # Not usefull anymore. Free data
+        self.idCount.clear()  # Not usefull anymore. Free data
 
 
-    def filterFromFullValidation(self, tempword2id, tempid2word, tempidCount):
+    def filterFromFullValidation(self):
         """ Load the pre-processed full corpus and filter the vocabulary / sentences
         to match the given model options
         """
-        self.word2id = tempword2id
-        self.id2word = tempid2word  # For a rapid conversion (Warning: If replace dict by list, modify the filtering to avoid linear complexity with del)
-        self.idCount = tempidCount  # Useful to filters the words (TODO: Could replace dict by list or use collections.Counter)
+        # self.word2id = tempword2id
+        # self.id2word = tempid2word  # For a rapid conversion (Warning: If replace dict by list, modify the filtering to avoid linear complexity with del)
+        # self.idCount = tempidCount  # Useful to filters the words (TODO: Could replace dict by list or use collections.Counter)
 
         def mergeSentences(sentences, fromEnd=False):
             """Merge the sentences until the max sentence length is reached
@@ -503,8 +508,8 @@ class TextData:
                 else:  # If the sentence is not used, neither are the words
                     for w in sentence:
                         print (w)
-                        print (w in self.idCount.keys())
-                        self.idCount[w] -= 1
+                        print (w in self.idCount_validation.keys())
+                        self.idCount_validation[w] -= 1
             return merged
 
         newSamples = []
@@ -535,23 +540,23 @@ class TextData:
         newId = 0
 
         selectedWordIds = collections \
-            .Counter(self.idCount) \
+            .Counter(self.idCount_validation) \
             .most_common(self.args.vocabularySize or None)  # Keep all if vocabularySize == 0
         selectedWordIds = {k for k, v in selectedWordIds if v > self.args.filterVocab}
         selectedWordIds |= specialTokens
 
-        for wordId, count in [(i, self.idCount[i]) for i in range(len(self.idCount))]:  # Iterate in order
+        for wordId, count in [(i, self.idCount_validation[i]) for i in range(len(self.idCount_validation))]:  # Iterate in order
             if wordId in selectedWordIds:  # Update the word id
                 newMapping[wordId] = newId
-                word = self.id2word[wordId]  # The new id has changed, update the dictionaries
-                del self.id2word[wordId]  # Will be recreated if newId == wordId
-                self.word2id[word] = newId
-                self.id2word[newId] = word
+                word = self.id2word_validation[wordId]  # The new id has changed, update the dictionaries
+                del self.id2word_validation[wordId]  # Will be recreated if newId == wordId
+                self.word2id_validation[word] = newId
+                self.id2word_validation[newId] = word
                 newId += 1
             else:  # Cadidate to filtering, map it to unknownToken (Warning: don't filter special token)
                 newMapping[wordId] = self.unknownToken
-                del self.word2id[self.id2word[wordId]]  # The word isn't used anymore
-                del self.id2word[wordId]
+                del self.word2id_validation[self.id2word_validation[wordId]]  # The word isn't used anymore
+                del self.id2word_validation[wordId]
 
         # Last step: replace old ids by new ones and filters empty sentences
         def replace_words(words):
@@ -570,19 +575,19 @@ class TextData:
             valid &= replace_words(targetWords)
             valid &= targetWords.count(self.unknownToken) == 0  # Filter target with out-of-vocabulary target words ?
 
-            if valid:
-                self.validationSamples.append([inputWords, targetWords])  # TODO: Could replace list by tuple
+            # if valid:
+            self.validationSamples.append([inputWords, targetWords])  # TODO: Could replace list by tuple
 
-        self.idCount.clear()  # Not usefull anymore. Free data
+        self.idCount_validation.clear()  # Not usefull anymore. Free data
 
 
 
     # validation
     def createFullValidationCorpus(self, conversations):
-        self.padToken = self.getWordId('<pad>')  # Padding (Warning: first things to add > id=0 !!)
-        self.goToken = self.getWordId('<go>')  # Start of sequence
-        self.eosToken = self.getWordId('<eos>')  # End of sequence
-        self.unknownToken = self.getWordId('<unknown>')  # Word dropped from vocabulary
+        self.padToken = self.getWordIdValidation('<pad>')  # Padding (Warning: first things to add > id=0 !!)
+        self.goToken = self.getWordIdValidation('<go>')  # Start of sequence
+        self.eosToken = self.getWordIdValidation('<eos>')  # End of sequence
+        self.unknownToken = self.getWordIdValidation('<unknown>')  # Word dropped from vocabulary
 
         # Preprocessing data
         for conversation in tqdm(conversations, desc='Extract conversations'):
@@ -623,8 +628,8 @@ class TextData:
             inputLine = conversation['lines'][i]
             targetLine = conversation['lines'][i + 1]
 
-            inputWords = self.extractText(inputLine['text'])
-            targetWords = self.extractText(targetLine['text'])
+            inputWords = self.extractTextValidation(inputLine['text'])
+            targetWords = self.extractTextValidation(targetLine['text'])
 
             if inputWords and targetWords:  # Filter wrong samples (if one of the list is empty)
                 self.validationSamples.append([inputWords, targetWords])
@@ -676,6 +681,30 @@ class TextData:
 
         return sentences
 
+    def extractTextValidation(self, line):
+        """Extract the words from a sample lines
+        Args:
+            line (str): a line containing the text to extract
+        Return:
+            list<list<int>>: the list of sentences of word ids of the sentence
+        """
+        sentences = []  # List[List[str]]
+
+        # Extract sentences
+        sentencesToken = nltk.sent_tokenize(line)
+
+        # We add sentence by sentence until we reach the maximum length
+        for i in range(len(sentencesToken)):
+            tokens = nltk.word_tokenize(sentencesToken[i])
+
+            tempWords = []
+            for token in tokens:
+                tempWords.append(self.getWordIdValidation(token))  # Create the vocabulary and the training sentences
+
+            sentences.append(tempWords)
+
+        return sentences
+
     def getWordId(self, word, create=True):
         """Get the id of the word (and add it to the dictionary if not existing). If the word does not exist and
         create is set to False, the function will return the unknownToken value
@@ -702,6 +731,36 @@ class TextData:
             self.word2id[word] = wordId
             self.id2word[wordId] = word
             self.idCount[wordId] = 1
+
+        return wordId
+
+
+    def getWordIdValidation(self, word, create=True):
+        """Get the id of the word (and add it to the dictionary if not existing). If the word does not exist and
+        create is set to False, the function will return the unknownToken value
+        Args:
+            word (str): word to add
+            create (Bool): if True and the word does not exist already, the world will be added
+        Return:
+            int: the id of the word created
+        """
+        # Should we Keep only words with more than one occurrence ?
+
+        word = word.lower()  # Ignore case
+
+        # At inference, we simply look up for the word
+        if not create:
+            wordId = self.word2id_validation.get(word, self.unknownToken)
+        # Get the id if the word already exist
+        elif word in self.word2id_validation:
+            wordId = self.word2id_validation[word]
+            self.idCount_validation[wordId] += 1
+        # If not, we create a new entry
+        else:
+            wordId = len(self.word2id_validation)
+            self.word2id_validation[word] = wordId
+            self.id2word_validation[wordId] = word
+            self.idCount_validation[wordId] = 1
 
         return wordId
 
