@@ -16,7 +16,7 @@ class MSParaphraseData:
         self.conversations = self.loadConversations(os.path.join(dirName, "msr_paraphrase_train.txt"), PARAPHRASE_CONVERSATIONS_FIELDS)
 
         self.validation_lines = self.loadLines(os.path.join(dirName, "msr_paraphrase_data.txt"), PARAPHRASE_LINES_FIELDS)
-        self.validation_conversations = self.loadConversations(os.path.join(dirName, "msr_paraphrase_test3.txt"), PARAPHRASE_CONVERSATIONS_FIELDS)
+        self.validation_conversations = self.loadConversations(os.path.join(dirName, "msr_paraphrase_test.txt"), PARAPHRASE_CONVERSATIONS_FIELDS)
         print('data reading finished')
 
     def loadLines(self, fileName, fields):

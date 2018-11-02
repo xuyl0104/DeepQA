@@ -294,9 +294,9 @@ class Chatbot:
                     self.plot_perplexity.append(loss)
 
                     # Do validation every 100 steps
-                    if self.globStep % 5 == 0:
+                    if self.globStep % 50 == 0:
                         # self.mainValidation()
-                        ops_valadition, validation_feedDict = self.model.step(validationBatches)
+                        ops_valadition, validation_feedDict = self.model.step(validationBatches[0])
                         assert len(ops_valadition) == 2  # validation, loss
                         _, validation_loss, validation_summary = sess.run(ops_valadition + (mergedSummaries,), validation_feedDict)
                         validation_perplexity = math.exp(float(validation_loss)) if validation_loss < 300 else float("inf")

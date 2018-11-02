@@ -254,7 +254,7 @@ class TextData:
         def genNextSamples():
             for i in range(0, self.getValidationSampleSize(), self.args.batchSize):
                 yield self.validationSamples[i:min(i + self.args.batchSize, self.getValidationSampleSize())]
-        for samples in self.validationSamples:
+        for samples in genNextSamples():
             batch = self._createBatch(samples)
             batches.append(batch)
         return batches
