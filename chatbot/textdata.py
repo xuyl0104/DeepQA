@@ -302,7 +302,8 @@ class TextData:
                 corpusData = TextData.availableCorpus[self.args.corpus](self.corpusDir + optional)
                 self.createFullCorpus(corpusData.getConversations())
 
-                self.createFullValidationCorpus(corpusData.getValidationConversations())
+                if (self.args.corpus == 'msparaphrase'):
+                    self.createFullValidationCorpus(corpusData.getValidationConversations())
 
                 self.saveDataset(self.fullSamplesPath)
 

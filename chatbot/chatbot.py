@@ -28,7 +28,7 @@ import numpy as np
 import math
 
 from tqdm import tqdm  # Progress bar
-from tensorflow.python import debug as tf_debug
+#from tensorflow.python import debug as tf_debug
 
 from chatbot.textdata import TextData
 from chatbot.model import Model
@@ -216,9 +216,9 @@ class Chatbot:
             log_device_placement=False)  # Too verbose ?
         )  # TODO: Replace all sess by self.sess (not necessary a good idea) ?
 
-        if self.args.debug:
-            self.sess = tf_debug.LocalCLIDebugWrapperSession(self.sess)
-            self.sess.add_tensor_filter("has_inf_or_nan", tf_debug.has_inf_or_nan)
+#        if self.args.debug:
+#           self.sess = tf_debug.LocalCLIDebugWrapperSession(self.sess)
+#            self.sess.add_tensor_filter("has_inf_or_nan", tf_debug.has_inf_or_nan)
 
         print('Initialize variables...')
         self.sess.run(tf.global_variables_initializer())
@@ -287,7 +287,8 @@ class Chatbot:
 
                 batches = self.textData.getBatches()
 
-                validationBatches = self.textData.getValidationBatches()
+                if self.args.corpus == 'msparaphrase':
+                    validationBatches = self.textData.getValidationBatches()
 
                 # TODO: Also update learning parameters eventually
 
@@ -304,7 +305,7 @@ class Chatbot:
                     self.plot_perplexity.append(math.exp(float(loss)) if loss < 300 else float("inf"))
 
                     # Do validation every 10s steps
-                    if self.globStep % 10 == 0:
+                    if (self.args.corpus == 'msparaphrase') and (self.globStep % 10 == 0):
                         # self.mainValidation()
                         ops_valadition, validation_feedDict = self.model.step(validationBatches[0])
                         assert len(ops_valadition) == 2  # validation, loss
