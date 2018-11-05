@@ -69,6 +69,9 @@ class Chatbot:
         self.PLOT_DATA_BASE = 'save' + os.sep + 'plot_data'
         self.plot_loss = []
         self.plot_perplexity = []
+        self.plot_loss_validation = []
+        self.plot_perplexity_validation = []
+
         self.MODEL_DIR_BASE = 'save' + os.sep + 'model'
         self.MODEL_NAME_BASE = 'model'
         self.MODEL_EXT = '.ckpt'
@@ -82,8 +85,14 @@ class Chatbot:
         lr = (str)(original_lr).split('.')[1]
         lossfilename = (str)(self.args.corpus) + "_" + "loss" + "_" + "bs" + "_" + (str)(self.args.batchSize) + "_" + "lr" + "_" + lr + "_" + "ep" + "_" + (str)(self.args.numEpochs)
         perplexityfilename = (str)(self.args.corpus) + "_" + "perplexity" + "_" + "bs" + "_" + (str)(self.args.batchSize) + "_" + "lr" + "_" + lr + "_" + "ep" + "_" + (str)(self.args.numEpochs)
+
+        validationlossfilename = "valid_" + (str)(self.args.corpus) + "_" + "loss" + "_" + "bs" + "_" + (str)(self.args.batchSize) + "_" + "lr" + "_" + lr + "_" + "ep" + "_" + (str)(self.args.numEpochs)
+        validationperplexityfilename = "valid_" + (str)(self.args.corpus) + "_" + "perplexity" + "_" + "bs" + "_" + (str)(self.args.batchSize) + "_" + "lr" + "_" + lr + "_" + "ep" + "_" + (str)(self.args.numEpochs)
         np.save(self.PLOT_DATA_BASE + os.sep + lossfilename, self.plot_loss)
         np.save(self.PLOT_DATA_BASE + os.sep + perplexityfilename, self.plot_perplexity)
+
+        np.save(self.PLOT_DATA_BASE + os.sep + validationlossfilename, self.plot_loss_validation)
+        np.save(self.PLOT_DATA_BASE + os.sep + validationperplexityfilename, self.plot_perplexity_validation)
 
     @staticmethod
     def parseArgs(args):
@@ -154,7 +163,7 @@ class Chatbot:
         trainingArgs.add_argument('--numEpochs', type=int, default=30, help='maximum number of epochs to run')
         trainingArgs.add_argument('--saveEvery', type=int, default=2000, help='nb of mini-batch step before creating a model checkpoint')
         trainingArgs.add_argument('--batchSize', type=int, default=50, help='mini-batch size')
-        trainingArgs.add_argument('--learningRate', type=float, default=0.002, help='Learning rate')
+        trainingArgs.add_argument('--learningRate', type=float, default=0.003, help='Learning rate')
         trainingArgs.add_argument('--dropout', type=float, default=0.9, help='Dropout rate (keep probabilities)')
 
         return parser.parse_args(args)
@@ -248,8 +257,9 @@ class Chatbot:
 
         # Specific training dependent loading
 
-        original_decay = 0.96
+        original_decay = 0.97
         original_lr = self.args.learningRate
+        lr_lowerbound = 0.0001
 
         self.textData.makeLighter(self.args.ratioDataset)  # Limit the number of training samples
 
@@ -270,7 +280,7 @@ class Chatbot:
                 # in the first 20 epochs, the decay factor will not decay
                 # after the first 20 epochs, the decay_factor is original_decay** max(epoch + 1 - 20, 0.0)
                 new_decay_factor = original_decay ** max(e + 1 - 20, 0)
-                self.args.learningRate = self.args.learningRate * new_decay_factor
+                self.args.learningRate = max(lr_lowerbound, self.args.learningRate * new_decay_factor)
 
                 print()
                 print("----- Epoch {}/{} ; (lr={}) -----".format(e+1, self.args.numEpochs, self.args.learningRate))
@@ -290,17 +300,20 @@ class Chatbot:
                     self.writer.add_summary(summary, self.globStep)
                     self.globStep += 1
 
-                    self.plot_loss.append(math.exp(float(loss)) if loss < 300 else float("inf"))
-                    self.plot_perplexity.append(loss)
+                    self.plot_loss.append(loss)
+                    self.plot_perplexity.append(math.exp(float(loss)) if loss < 300 else float("inf"))
 
-                    # Do validation every 100 steps
-                    if self.globStep % 50 == 0:
+                    # Do validation every 10s steps
+                    if self.globStep % 10 == 0:
                         # self.mainValidation()
                         ops_valadition, validation_feedDict = self.model.step(validationBatches[0])
                         assert len(ops_valadition) == 2  # validation, loss
                         _, validation_loss, validation_summary = sess.run(ops_valadition + (mergedSummaries,), validation_feedDict)
                         validation_perplexity = math.exp(float(validation_loss)) if validation_loss < 300 else float("inf")
+                        self.plot_loss_validation.append(validation_loss)
+                        self.plot_perplexity_validation.append(validation_perplexity)
                         tqdm.write("VALIDATION----- Step %d -- Loss %.2f -- Perplexity %.2f" % (self.globStep, validation_loss, validation_perplexity))
+                        tqdm.write("Training----- Step %d -- Loss %.2f -- Perplexity %.2f" % (self.globStep, loss, math.exp(float(loss)) if loss < 300 else float("inf")))
                         # print("VALIDATION____Step: " + (str)(self.globStep) + "____ Loss: " + (str)(validation_loss) + "____ PP: " + (str)(validation_perplexity))
 
                     # Output training status
@@ -336,8 +349,19 @@ class Chatbot:
         """
 
         # Loading the file to predict
-        with open(os.path.join(self.args.rootDir, self.TEST_IN_NAME), 'r') as f:
+        predictSampleFileList = {
+            'cornell': os.path.join(self.args.rootDir, self.TEST_IN_NAME),
+            'msparaphrase': os.path.join(self.args.rootDir, 'data' + os.sep + 'test' + os.sep + 'ms-paraphrase-samples.txt'),
+            'gyafc': os.path.join(self.args.rootDir, 'data' + os.sep + 'test' + os.sep + 'gyafc-samples.txt'),
+        }
+
+        predictSampleFile = predictSampleFileList[self.args.corpus]
+
+        with open(predictSampleFile, 'r') as f:
             lines = f.readlines()
+
+        # with open(os.path.join(self.args.rootDir, self.TEST_IN_NAME), 'r') as f:
+        #     lines = f.readlines()
 
         modelList = self._getModelList()
         if not modelList:

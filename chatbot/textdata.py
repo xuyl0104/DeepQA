@@ -575,8 +575,8 @@ class TextData:
             valid &= replace_words(targetWords)
             valid &= targetWords.count(self.unknownToken) == 0  # Filter target with out-of-vocabulary target words ?
 
-            # if valid:
-            self.validationSamples.append([inputWords, targetWords])  # TODO: Could replace list by tuple
+            if valid:
+                self.validationSamples.append([inputWords, targetWords])  # TODO: Could replace list by tuple
 
         self.idCount_validation.clear()  # Not usefull anymore. Free data
 
